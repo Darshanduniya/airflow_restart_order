@@ -1,0 +1,16 @@
+def choose_fact_command_list(**kwargs):
+    ti = kwargs['ti']
+    industry_count = ti.xcom_pull(task_ids='check_industry_count', key='industry_count')
+    if industry_count > 1:
+        print("fact_command_list_ind")
+        return fact_command_list_ind
+    else:
+        print("fact_command_list_aus")
+        return fact_command_list_aus
+    
+choose_command = PythonOperator(
+    task_id='choose_fact_command_list',
+    provide_context=True,
+    python_callable=choose_fact_command_list,
+    dag=dag,
+)
