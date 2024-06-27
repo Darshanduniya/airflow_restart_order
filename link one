@@ -1,1 +1,31 @@
 https://chatgpt.com/share/442658ce-aac6-42e9-b8ed-20577c74f2b0
+
+
+Order	Service	Description	Systemctl Command
+1	Redis	Redis is the broker for Celery. Restart it first to avoid connection issues.	sudo systemctl restart redis
+2	Celery Workers	Restart workers to ensure they can connect to Redis and be ready to pick up tasks.	sudo systemctl restart airflow-worker
+3	Celery Flower (optional)	Flower is used to monitor Celery workers. Restart it after workers for accurate monitoring.	sudo systemctl restart airflow-flower
+4	Scheduler	Restart the scheduler to begin assigning tasks to the workers.	sudo systemctl restart airflow-scheduler
+5	Webserver	Restart the webserver to update the user interface with the current state.	sudo systemctl restart airflow-webserver
+
+Steps to Restart Services
+Redis:
+
+Command: sudo systemctl restart redis
+Ensure that Redis is running and ready to accept connections from Celery workers and the scheduler.
+Celery Workers:
+
+Command: sudo systemctl restart airflow-worker
+Restart workers to ensure they can connect to Redis and are ready to process tasks.
+Celery Flower (if used):
+
+Command: sudo systemctl restart airflow-flower
+Restart Flower to accurately monitor the state of Celery workers.
+Scheduler:
+
+Command: sudo systemctl restart airflow-scheduler
+Restart the scheduler to start assigning tasks to the workers.
+Webserver:
+
+Command: sudo systemctl restart airflow-webserver
+Restart the webserver to update the user interface and reflect the current state of Airflow components.
