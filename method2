@@ -1,0 +1,100 @@
+Python
+from airflow import DAG
+from airflow.operators.ssh_operator import SSHOperator
+from airflow.operators.python_operator import PythonOperator
+from airflow.providers.sqlite.operators.sqlite import SqliteOperator
+from datetime import datetime, timedelta
+
+default_args = {
+    'owner': 'airflow',
+    'depends_on_past': False,
+    'email_on_failure': False,
+    'email_on_retry': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
+
+dag = DAG(
+    'dag_two',
+    default_args=default_args,
+    description='A simple tutorial DAG with conditional execution',
+    schedule_interval=None,  # Adjust as needed
+    start_date=datetime(2023, 1, 1),
+    catchup=False,
+)
+
+
+def check_map_table_count(**kwargs):
+    """
+    Checks the count of rows in the map_table where industry_name = 'TEC_POS_TKD'.
+    Sets the `fact_command_list` XCom based on the count.
+    """
+
+    # Replace with your actual connection details
+    conn_id = 'sqlite_default'
+    sql = f"""
+        SELECT COUNT(*)
+        FROM map_table
+        WHERE industry_name = '{industry_name}'
+    """
+
+    with DAG.get_template_context(**kwargs) as context:
+        count = SqliteOperator(
+            task_id='check_map_table_count',
+            sqlite_conn_id=conn_id,
+            sql=sql,
+            dag=dag,
+        ).execute(context=context)[0][0]
+
+    if count > 1:
+        fact_command_list = [
+            'sh -x /data/darshan/dimension/extract.sh',
+            'sh -x /data/darshan/dimension/transform.sh',
+            'sh -x /data/darshan/dimension/transform.sh'
+        ]
+    else:
+        fact_command_list = [
+            'sh -x /data/darshan/fact/extract.sh',
+            'sh -x /data/darshan/fact/transform.sh',
+            'sh -x /data/darshan/fact/transform.sh'
+        ]
+
+    kwargs['ti'].xcom_push(key='fact_command_list', value=fact_command_list)
+
+
+check_count = PythonOperator(
+    task_id='check_map_table_count',
+    python_callable=check_map_table_count,
+    provide_context=True,
+    dag=dag,
+)
+
+
+test1 = SSHOperator(
+    task_id='test1',
+    ssh_conn_id="model_task",
+    # Retrieve the fact_command_list from XCom
+    command=check_count.xcom_pull(task_ids='check_map_table_count', key='fact_command_list')[0],
+    dag=dag,
+)
+
+
+test2 = SSHOperator(
+    task_id='test2',
+    ssh_conn_id="model_task",
+    # Retrieve the fact_command_list from XCom
+    command=check_count.xcom_pull(task_ids='check_map_table_count', key='fact_command_list')[1],
+    dag=dag,
+)
+
+
+test3 = SSHOperator(
+    task_id='test3',
+    ssh_conn_id="model_task",
+    # Retrieve the fact_command_list from XCom
+    command=check_count.xcom_pull(task_ids='check_map_table_count', key='fact_command_list')[2],
+    dag=dag,
+)
+
+
+check_count >> test1 >> test2 >> test3
